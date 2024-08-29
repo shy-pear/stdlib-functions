@@ -1,0 +1,334 @@
+
+
+
+ARM Macro Assembler    Page 1 
+
+
+    1 00000000                 AREA             |.text|, CODE, READONLY, ALIGN=
+2
+    2 00000000                 THUMB
+    3 00000000         
+    4 00000000         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    5 00000000         ; System Call Table
+    6 00000000 20007B00 
+                       SYSTEMCALLTBL
+                               EQU              0x20007B00  ; originally 0x2000
+                                                            7500
+    7 00000000 00000000 
+                       SYS_EXIT
+                               EQU              0x0         ; address 20007B00
+    8 00000000 00000001 
+                       SYS_ALARM
+                               EQU              0x1         ; address 20007B04
+    9 00000000 00000002 
+                       SYS_SIGNAL
+                               EQU              0x2         ; address 20007B08
+   10 00000000 00000003 
+                       SYS_MEMCPY
+                               EQU              0x3         ; address 20007B0C
+   11 00000000 00000004 
+                       SYS_MALLOC
+                               EQU              0x4         ; address 20007B10
+   12 00000000 00000005 
+                       SYS_FREE
+                               EQU              0x5         ; address 20007B14
+   13 00000000         
+   14 00000000         
+   15 00000000         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   16 00000000         ; System Call Table Initialization
+   17 00000000                 EXPORT           _syscall_table_init
+   18 00000000         
+   19 00000000         _syscall_table_init
+   20 00000000         ;save registers
+   21 00000000 E92D 5FFE       STMFD            SP!, {R1-R12,LR}
+   22 00000004 481B            LDR              R0, =SYSTEMCALLTBL
+   23 00000006         
+   24 00000006         ; Initialize timer_start: 0x20007B04
+   25 00000006                 IMPORT           _timer_start
+   26 00000006 4A1C            LDR              R2, =_timer_start
+   27 00000008 F840 2F04       STR              R2, [R0, #4]!
+   28 0000000C         
+   29 0000000C         ; Initialize signal_handler: 0x20007B08
+   30 0000000C                 IMPORT           _signal_handler
+   31 0000000C 4A1B            LDR              R2, =_signal_handler
+   32 0000000E F840 2F04       STR              R2, [R0, #4]!
+   33 00000012         
+   34 00000012         ; Initialize kalloc: 0x20007B0C
+   35 00000012                 IMPORT           _kalloc
+   36 00000012 4A1B            LDR              R2, =_kalloc
+   37 00000014 F840 2F04       STR              R2, [R0, #4]!
+   38 00000018         
+   39 00000018         ; Initialize kfree: 0x20007B0C
+   40 00000018                 IMPORT           _kfree
+   41 00000018 4A1A            LDR              R2, =_kfree
+
+
+
+ARM Macro Assembler    Page 2 
+
+
+   42 0000001A F840 2F04       STR              R2, [R0, #4]!
+   43 0000001E         
+   44 0000001E         ; Retrieve registers
+   45 0000001E E8BD 5FFE       LDMFD            SP!, {R1-R12, LR}
+   46 00000022         ; return
+   47 00000022 46F7            MOV              pc, lr
+   48 00000024         
+   49 00000024         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   50 00000024         ; System Call Table Jump Routine
+   51 00000024                 EXPORT           _syscall_table_jump
+   52 00000024         _syscall_table_jump
+   53 00000024         ;Save registers
+   54 00000024 E92D 5FFE       STMFD            SP!, {R1-R12,LR}
+   55 00000028 F8DF B048       LDR              R11, =SYSTEMCALLTBL
+   56 0000002C         
+   57 0000002C 2F01            CMP              R7, #0x1
+   58 0000002E D006            BEQ              _run_timer_start
+   59 00000030         
+   60 00000030 2F02            CMP              R7, #0x2
+   61 00000032 D00A            BEQ              _run_signal_handler
+   62 00000034         
+   63 00000034 2F04            CMP              R7, #0x4
+   64 00000036 D00E            BEQ              _run_kalloc
+   65 00000038         
+   66 00000038 2F05            CMP              R7, #0x5
+   67 0000003A D012            BEQ              _run_kfree
+   68 0000003C         
+   69 0000003C E017            B                done
+   70 0000003E         
+   71 0000003E         _run_timer_start
+   72 0000003E F10B 0B04       ADD              R11, R11, #4
+   73 00000042 F8DB A000       LDR              R10, [R11]
+   74 00000046 47D0            BLX              R10
+   75 00000048 E011            B                done
+   76 0000004A         
+   77 0000004A         _run_signal_handler
+   78 0000004A F10B 0B08       ADD              R11, R11, #8
+   79 0000004E F8DB A000       LDR              R10, [R11]
+   80 00000052 47D0            BLX              R10
+   81 00000054 E00B            B                done
+   82 00000056         
+   83 00000056         _run_kalloc
+   84 00000056 F10B 0B0C       ADD              R11, R11, #12
+   85 0000005A F8DB A000       LDR              R10, [R11]
+   86 0000005E 47D0            BLX              R10
+   87 00000060 E005            B                done
+   88 00000062         
+   89 00000062         _run_kfree
+   90 00000062 F10B 0B10       ADD              R11, R11, #16
+   91 00000066 F8DB A000       LDR              R10, [R11]
+   92 0000006A 47D0            BLX              R10
+   93 0000006C E7FF            B                done
+   94 0000006E         
+   95 0000006E         done
+   96 0000006E         ;Retrieve registers
+   97 0000006E E8BD 5FFE       LDMFD            SP!, {R1-R12, LR}
+   98 00000072         ;return
+   99 00000072 46F7            MOV              pc, lr
+
+
+
+ARM Macro Assembler    Page 3 
+
+
+  100 00000074         
+  101 00000074                 END
+              20007B00 
+              00000000 
+              00000000 
+              00000000 
+              00000000 
+Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M4.fp --apcs=int
+erwork --depend=.\objects\svc.d -o.\objects\svc.o -I.\RTE\_Target_1 -I"C:\Progr
+am Files\Keil\ARM\PACK\ARM\CMSIS\5.8.0\CMSIS\Core\Include" -I"C:\Program Files\
+Keil\ARM\PACK\Keil\TM4C_DFP\1.1.0\Device\Include\TM4C129" --predefine="__EVAL S
+ETA 1" --predefine="__UVISION_VERSION SETA 526" --predefine="_RTE_ SETA 1" --pr
+edefine="TM4C129XNCZAD SETA 1" --list=.\listings\svc.lst svc.s
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+Relocatable symbols
+
+.text 00000000
+
+Symbol: .text
+   Definitions
+      At line 1 in file svc.s
+   Uses
+      None
+Comment: .text unused
+_run_kalloc 00000056
+
+Symbol: _run_kalloc
+   Definitions
+      At line 83 in file svc.s
+   Uses
+      At line 64 in file svc.s
+Comment: _run_kalloc used once
+_run_kfree 00000062
+
+Symbol: _run_kfree
+   Definitions
+      At line 89 in file svc.s
+   Uses
+      At line 67 in file svc.s
+Comment: _run_kfree used once
+_run_signal_handler 0000004A
+
+Symbol: _run_signal_handler
+   Definitions
+      At line 77 in file svc.s
+   Uses
+      At line 61 in file svc.s
+Comment: _run_signal_handler used once
+_run_timer_start 0000003E
+
+Symbol: _run_timer_start
+   Definitions
+      At line 71 in file svc.s
+   Uses
+      At line 58 in file svc.s
+Comment: _run_timer_start used once
+_syscall_table_init 00000000
+
+Symbol: _syscall_table_init
+   Definitions
+      At line 19 in file svc.s
+   Uses
+      At line 17 in file svc.s
+Comment: _syscall_table_init used once
+_syscall_table_jump 00000024
+
+Symbol: _syscall_table_jump
+   Definitions
+      At line 52 in file svc.s
+   Uses
+      At line 51 in file svc.s
+Comment: _syscall_table_jump used once
+done 0000006E
+
+Symbol: done
+
+
+
+ARM Macro Assembler    Page 2 Alphabetic symbol ordering
+Relocatable symbols
+
+   Definitions
+      At line 95 in file svc.s
+   Uses
+      At line 69 in file svc.s
+      At line 75 in file svc.s
+      At line 81 in file svc.s
+      At line 87 in file svc.s
+      At line 93 in file svc.s
+
+8 symbols
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+Absolute symbols
+
+SYSTEMCALLTBL 20007B00
+
+Symbol: SYSTEMCALLTBL
+   Definitions
+      At line 6 in file svc.s
+   Uses
+      At line 22 in file svc.s
+      At line 55 in file svc.s
+
+SYS_ALARM 00000001
+
+Symbol: SYS_ALARM
+   Definitions
+      At line 8 in file svc.s
+   Uses
+      None
+Comment: SYS_ALARM unused
+SYS_EXIT 00000000
+
+Symbol: SYS_EXIT
+   Definitions
+      At line 7 in file svc.s
+   Uses
+      None
+Comment: SYS_EXIT unused
+SYS_FREE 00000005
+
+Symbol: SYS_FREE
+   Definitions
+      At line 12 in file svc.s
+   Uses
+      None
+Comment: SYS_FREE unused
+SYS_MALLOC 00000004
+
+Symbol: SYS_MALLOC
+   Definitions
+      At line 11 in file svc.s
+   Uses
+      None
+Comment: SYS_MALLOC unused
+SYS_MEMCPY 00000003
+
+Symbol: SYS_MEMCPY
+   Definitions
+      At line 10 in file svc.s
+   Uses
+      None
+Comment: SYS_MEMCPY unused
+SYS_SIGNAL 00000002
+
+Symbol: SYS_SIGNAL
+   Definitions
+      At line 9 in file svc.s
+   Uses
+      None
+Comment: SYS_SIGNAL unused
+7 symbols
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+External symbols
+
+_kalloc 00000000
+
+Symbol: _kalloc
+   Definitions
+      At line 35 in file svc.s
+   Uses
+      At line 36 in file svc.s
+Comment: _kalloc used once
+_kfree 00000000
+
+Symbol: _kfree
+   Definitions
+      At line 40 in file svc.s
+   Uses
+      At line 41 in file svc.s
+Comment: _kfree used once
+_signal_handler 00000000
+
+Symbol: _signal_handler
+   Definitions
+      At line 30 in file svc.s
+   Uses
+      At line 31 in file svc.s
+Comment: _signal_handler used once
+_timer_start 00000000
+
+Symbol: _timer_start
+   Definitions
+      At line 25 in file svc.s
+   Uses
+      At line 26 in file svc.s
+Comment: _timer_start used once
+4 symbols
+356 symbols in table
